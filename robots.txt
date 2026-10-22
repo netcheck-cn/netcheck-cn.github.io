@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://netcheck-cn.github.io/sitemap.xml

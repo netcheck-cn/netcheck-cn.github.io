@@ -1,0 +1,7 @@
+网测通 V2.0 检查说明
+- 代码静态检查：参见随包 QA-REPORT.md
+- IP 回显双服务均使用 ipify 同一服务商，属于不同端点，不是独立供应商容灾。
+- IP 归属地 ipwho.is 免费接口有配额；可能因网络限制失败。
+- DNS Google / Cloudflare 的 JSON DoH 可能因地区网络、限流或跨域策略无法访问。
+- HTTP 延迟为 no-cors fetch 完成耗时，不读目标状态，不等于 ICMP Ping。
+- 本环境未验证真实终端的外部网络访问情况，上线后需实测。

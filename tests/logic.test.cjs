@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../assets/js/app.js'),'utf8');
+const sandbox={document:{addEventListener(){}},URL,console}; vm.createContext(sandbox);vm.runInContext(source,sandbox);
+const compare=(a,b)=>vm.runInContext('compareDnsAnswers',sandbox)(a,b);
+const a={Status:0,Answer:[{type:1,name:'EXAMPLE.COM.',data:'1.2.3.4',TTL:60},{type:1,name:'example.com.',data:'2.3.4.5',TTL:120}]};
+const b={Status:0,Answer:[{type:1,name:'example.com',data:'2.3.4.5',TTL:80},{type:1,name:'example.com',data:'1.2.3.4',TTL:500}],Authority:[{data:'ns1.example.com'}]};
+assert.match(compare(a,b),/Answer 记录一致/);
+assert.match(compare(a,{...b,Answer:[{type:1,name:'example.com',data:'9.9.9.9'}]}),/Answer 记录不同/);
+assert.match(compare(a,{...b,Status:3}),/不同的 DNS 状态码/);
+assert.match(compare(a,b),/未比较 Authority/);
+const validIP=vm.runInContext('validIP',sandbox),ipScope=vm.runInContext('ipScope',sandbox);
+assert.equal(validIP('8.8.8.8'),true);assert.equal(validIP('999.1.1.1'),false);
+assert.match(ipScope('192.168.1.1'),/私有/);assert.match(ipScope('2001:db8::1'),/文档/);
+console.log('PASS: DNS compare x4 + IP validation x4');
