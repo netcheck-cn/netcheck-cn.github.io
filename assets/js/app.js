@@ -92,7 +92,7 @@ async function familyIP(family){
 function initDualStack(){const btn=$('dualstack-start');if(!btn)return;btn.addEventListener('click',async()=>{
  btn.disabled=true;text('ipv4-result','检测中…');text('ipv6-result','检测中…');text('dualstack-note','两个独立请求正在执行，最长约 9 秒。');
  try{const results=await Promise.allSettled([familyIP(4),familyIP(6)]);
- results.forEach((r,i)=>{text(i===0?'ipv4-result':'ipv6-result',r.status==='fulfilled'?r.value:'不可获取（不代表一定不支持）');});
+ results.forEach((r,i)=>{text(i===0?'ipv4-result':'ipv6-result',r.status==='fulfilled'?r.value:'暂未检测到');});
  text('dualstack-note',results.every(r=>r.status==='fulfilled')?'两种协议的出口地址均已获取。':'部分请求失败。可能是当前网络未支持该协议，也可能是服务不可达、浏览器策略或网络拦截；不能仅据此确认协议支持状况。');}catch(error){text('dualstack-note','检测异常：'+error.message);}finally{btn.disabled=false;}
  });}
 // Compact overview; each query is real, not inferred from another record type.
