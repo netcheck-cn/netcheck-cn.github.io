@@ -70,3 +70,30 @@
 .ad-link{display:block;overflow:hidden;border-radius:12px}
 .ad-desktop img{display:block;width:100%;height:auto}
 @media(max-width:620px){.ad-mobile{min-height:200px;height:auto;box-sizing:border-box}.ad-mobile-features,.ad-mobile-platforms{overflow-wrap:anywhere}}
+
+/* Visual system refresh · 2026-10-22 */
+:root{--blue:#1769ed;--ink:#10223c;--muted:#667892;--line:#e2eaf6;--bg:#f4f7fc;--soft:#eaf2ff}
+body{background:radial-gradient(ellipse 68% 400px at 75% 0%,#e7f0ff 0%,transparent 100%),var(--bg);line-height:1.7}
+.header{background:rgba(255,255,255,.93);box-shadow:0 2px 18px rgba(29,68,125,.035);position:relative;z-index:2}
+.nav{min-height:74px}.logo{gap:10px;letter-spacing:-.025em;font-size:20px;text-decoration:none}.logo img{display:block;width:39px;height:39px;border-radius:11px;box-shadow:0 3px 12px #2563eb22}
+.links{gap:6px}.links a{padding:9px 13px;border-radius:10px;font-weight:550;transition:background .15s}.links a:hover,.links a[aria-current=page]{text-decoration:none;background:#eff5ff;color:#1556c6}
+main{padding-top:32px}.hero{margin-bottom:21px}.eyebrow{display:inline-block;padding:5px 11px;background:#e9f1ff;border:1px solid #d9e7ff;border-radius:999px;letter-spacing:.025em;font-size:12px}
+h1{font-size:clamp(30px,3.9vw,44px);letter-spacing:-.04em}h2{letter-spacing:-.025em}.lead{color:#566984}
+.hero-card{background:radial-gradient(circle at 94% 10%,#d9eaff,transparent 42%),linear-gradient(145deg,#fff 20%,#f2f7ff 100%);box-shadow:0 14px 48px rgba(34,79,151,.085);border-color:#d8e5f6;border-radius:22px;padding:32px}
+.card{border-radius:18px;box-shadow:0 10px 34px rgba(37,69,120,.048);transition:border-color .15s,box-shadow .15s}.grid a.card:hover,.article-list a:hover{border-color:#95baf8;box-shadow:0 12px 32px rgba(37,99,235,.10);text-decoration:none;transform:translateY(-1px)}
+.panel{margin-top:24px}.bubble{background:linear-gradient(140deg,#eaf3ff,#e0eaff);color:#1660d2}.result-big{color:#122c57;letter-spacing:-.045em}
+.kv{background:#f5f9ff;border:1px solid #e6effb}.btn{background:linear-gradient(115deg,#1673f2,#2459e8);box-shadow:0 4px 12px rgba(37,99,235,.15);border-color:#2862e9}.btn:hover{background:#1554d1}.btn.alt{box-shadow:none;background:#fff}.status{border-radius:11px}
+.ad.ad-compact{max-width:100%;margin:20px 0 23px;border:1px solid #dae5f5;border-radius:15px;padding:7px 9px 9px;background:#fff;box-shadow:0 8px 26px #123a740b}.ad-label{font-size:11px;margin:0 0 5px 3px;color:#7284a0}.ad-link{border-radius:10px}.ad-desktop img{width:100%;aspect-ratio:2172/530;height:auto;max-height:172px;object-fit:cover;object-position:center center}.ad-mobile{min-height:0}
+.article{font-size:16px}.article h2{border-bottom:1px solid #e6edf6;padding-bottom:9px}.article-list a{transition:.15s}.foot{border-top-color:#e2eaf6}
+@media(max-width:900px) and (min-width:621px){.ad-desktop img{max-height:148px;object-fit:cover}}
+@media(max-width:730px){main{padding-top:23px}.links{gap:3px}.links a{padding:7px 10px}.hero-card{padding:22px}.nav{gap:8px}.card{padding:20px}}
+@media(max-width:620px){.ad.ad-compact{margin:17px 0 21px;padding:7px}.ad-mobile{min-height:146px!important;padding:17px 17px!important;gap:5px!important;background-position:center right}.ad-mobile strong{font-size:clamp(20px,5.3vw,25px)!important;line-height:1.25}.ad-mobile-eyebrow{font-size:11px}.ad-mobile-features{font-size:12px!important}.ad-mobile-platforms{font-size:10px!important}.ad-link{min-height:0!important}.hero-card{padding:20px}.logo img{width:35px;height:35px}}
+@media(max-width:360px){.ad-mobile{min-height:142px!important;padding:14px!important}.ad-mobile strong{font-size:20px!important}}
+@media(prefers-reduced-motion:reduce){.links a,.card{transition:none}}
+
+/* Post-audit: balanced compact sponsor and accessible interaction */
+@media(min-width:621px){.ad.ad-compact .ad-desktop img{height:auto;max-height:158px;object-fit:cover;object-position:center 51%}}
+@media(max-width:620px){.ad.ad-compact .ad-mobile{min-height:138px!important;padding:13px 15px!important;gap:4px!important}.ad.ad-compact .ad-mobile strong{font-size:clamp(19px,5.2vw,24px)!important}.ad.ad-compact .ad-mobile-platforms{line-height:1.3}}
+@media(max-width:380px){.ad.ad-compact .ad-mobile{min-height:138px!important;padding:12px!important}}
+@media(hover:hover){.grid a.card{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}}
+@media(prefers-reduced-motion:reduce){.grid a.card{transition:none}}
