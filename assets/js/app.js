@@ -107,3 +107,70 @@ function initDNSBatch(){const btn=$('dns-batch-start');if(!btn)return;btn.addEve
  status('dns-batch-status',`已完成 ${types.length} 类记录的查询；${failed} 类请求失败。结果来自 Google Public DNS，可能受到缓存和地域影响。`,failed?'info':'success');}catch(error){status('dns-batch-status','批量查询出现意外错误：'+error.message,'error');}finally{btn.disabled=false;}
  });}
 document.addEventListener('DOMContentLoaded',()=>{initDualStack();initDNSBatch();});
+
+
+// IPinfo Lite country-level bulk lookup. No city or region fields exist in Lite.
+function initBatchIP(){
+ const single=$('lookup-form'),pane=$('batch-pane');if(!single||!pane)return;
+ const copyButton=$('copy-lookup');let records=[],running=false;
+ const token=String(window.NETCHECK_IPINFO_TOKEN||'').trim();
+ const activate=batch=>{
+  if(running)return;
+  pane.hidden=!batch;single.hidden=batch;
+  const note=single.nextElementSibling;
+  for(const id of ['lookup-status','lookup-ip','lookup-results']){const el=$(id);if(el)el.hidden=batch;}
+  if(copyButton?.closest('.actions'))copyButton.closest('.actions').hidden=batch;
+  if(note?.classList.contains('note'))note.hidden=batch;
+  $('mode-single').setAttribute('aria-pressed',String(!batch));$('mode-batch').setAttribute('aria-pressed',String(batch));
+ };
+ $('mode-single').addEventListener('click',()=>activate(false));
+ $('mode-batch').addEventListener('click',()=>activate(true));
+ const display=()=>makeTable('batch-results',['IP 地址','查询状态','国家/地区','洲','ASN','网络组织'],records.map(r=>[r.ip,r.state,r.country,r.continent,r.asn,r.organization]));
+ if(!token){$('batch-start').disabled=true;status('batch-status','批量查询服务尚未启用。单个 IP 查询仍可正常使用。','info');}
+ const batchLimit=50;
+ $('batch-start').addEventListener('click',async()=>{
+  if(running)return;
+  if(!token){status('batch-status','批量查询服务尚未启用，请使用单个查询。','error');return;}
+  const ips=[...new Set($('batch-ip-input').value.split(/[\n,;，；]+/).map(x=>x.trim()).filter(Boolean))];
+  if(!ips.length){status('batch-status','请至少输入一个 IP 地址。','error');return;}
+  if(ips.length>batchLimit){status('batch-status',`每批最多 ${batchLimit} 个不同 IP，请分批处理。`,'error');return;}
+  running=true;records=ips.map(ip=>({ip,state:'等待',country:'—',continent:'—',asn:'—',organization:'—'}));
+  $('batch-export').disabled=true;$('batch-start').disabled=true;
+  $('mode-single').disabled=true;$('mode-batch').disabled=true;$('batch-progress').style.width='0%';display();
+  let cursor=0,finished=0;
+  const update=()=>{display();$('batch-progress').style.width=(finished/ips.length*100)+'%';status('batch-status',`已处理 ${finished}/${ips.length} 个 IP；成功 ${records.filter(x=>x.state==='查询成功').length} 个。`,finished===ips.length?'success':'info');};
+  const worker=async()=>{
+   while(cursor<ips.length){
+    const index=cursor++,ip=ips[index],record=records[index];
+    if(!validIP(ip)){record.state='地址格式错误';finished++;update();continue;}
+    const scope=ipScope(ip);
+    if(scope){record.state=scope;finished++;update();continue;}
+    record.state='查询中';update();
+    try{
+     const url='https://api.ipinfo.io/lite/'+encodeURIComponent(ip)+'?token='+encodeURIComponent(token);
+     const d=await jsonFetch(url);
+     if(!d||typeof d!=='object'||Array.isArray(d)||!d.ip||d.error)throw Error(d?.error?.message||'返回数据不完整');
+     record.state='查询成功';
+     record.country=String(d.country||d.country_code||'—');
+     record.continent=String(d.continent||d.continent_code||'—');
+     record.asn=String(d.asn||'—');
+     record.organization=String(d.as_name||d.as_domain||'—');
+    }catch(e){record.state=e.name==='AbortError'?'请求超时':('查询失败：'+(e.message||'服务暂不可用'));}
+    finished++;update();
+   }
+  };
+  try{await Promise.all(Array.from({length:Math.min(3,ips.length)},()=>worker()));}
+  catch(e){status('batch-status','批量任务发生异常：'+(e.message||'未知错误'),'error');}
+  finally{running=false;$('batch-start').disabled=false;$('mode-single').disabled=false;$('mode-batch').disabled=false;$('batch-export').disabled=!records.length;}
+ });
+ $('batch-clear').addEventListener('click',()=>{if(running)return;$('batch-ip-input').value='';records=[];$('batch-export').disabled=true;$('batch-results').replaceChildren();$('batch-progress').style.width='0%';status('batch-status','已清空。');});
+ $('batch-export').addEventListener('click',()=>{
+  if(!records.length)return;
+  const csvCell=v=>'"'+String(v??'').replace(/"/g,'""').replace(/^[=+@\-\t\r]/,x=>"'"+x)+'"';
+  const rows=[['IP 地址','查询状态','国家/地区','洲','ASN','网络组织'],...records.map(r=>[r.ip,r.state,r.country,r.continent,r.asn,r.organization])];
+  const csv='\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download='网测通-IP批量查询.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ });
+}
+document.addEventListener('DOMContentLoaded',initBatchIP);

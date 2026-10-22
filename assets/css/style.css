@@ -20,3 +20,24 @@ main{padding-block:29px 65px;min-height:65vh}h1,h2,h3{color:#142d4d;line-height:
 .friend-list a{font-size:13px;color:#5b6d83;line-height:1.8;white-space:nowrap;text-decoration:none}
 .friend-list a:hover{color:#1458bf;text-decoration:underline}
 @media(max-width:620px){.friend-links{width:calc(100% - 30px);gap:5px 10px}.friend-title{width:100%}.friend-list{gap:6px 16px}}
+
+/* Strong visual affordances for actions and clear batch-query controls. */
+.btn,.mode-button{cursor:pointer;box-shadow:0 2px 5px rgba(20,79,160,.12)}
+.btn{border-width:2px;font-weight:750;transition:background .14s ease,box-shadow .14s ease,transform .14s ease}
+.btn:hover:not(:disabled){box-shadow:0 5px 13px rgba(20,80,170,.2);transform:translateY(-1px)}
+.btn.alt{border-color:#7ca5d9;color:#1654a0;background:#edf5ff}
+.btn.alt:hover:not(:disabled){background:#dcecff;border-color:#3673cb}
+.btn:disabled{box-shadow:none;transform:none}
+.mode-toggle{display:flex;gap:7px;background:#edf3fb;border:1px solid #dbe7f6;padding:5px;border-radius:12px;margin:15px 0 18px;max-width:420px}
+.mode-button{border:1px solid transparent;background:transparent;color:#3a5a7d;padding:10px 17px;border-radius:9px;flex:1;font-weight:750}
+.mode-button[aria-pressed="true"]{background:#155fe0;color:#fff;border-color:#155fe0;box-shadow:0 3px 9px #1c65d029}
+.mode-button:hover:not([aria-pressed="true"]){background:#d8e7fa}
+.batch-pane[hidden], [hidden]{display:none!important}
+.field-label{display:block;font-weight:750;margin:12px 0 8px;color:#263e59}
+#batch-ip-input{display:block;width:100%;min-height:160px;border:1px solid #b9cce5;border-radius:12px;padding:13px 14px;resize:vertical;background:#fbfdff;color:#1b3554;font:14px/1.75 ui-monospace,Consolas,monospace}
+.batch-progress-track{height:7px;background:#e9eff7;border-radius:99px;overflow:hidden;margin:10px 0}
+.batch-progress-bar{width:0;height:100%;background:#1764e8;transition:width .2s ease}
+.batch-results{margin-top:14px}.batch-results table{min-width:690px}
+.batch-results td:nth-child(2){min-width:160px}
+@media(max-width:620px){.mode-toggle{max-width:none}.mode-button{padding:10px 8px;font-size:13px}.batch-results table{min-width:640px}}
+@media(prefers-reduced-motion:reduce){.btn,.batch-progress-bar{transition:none}}
