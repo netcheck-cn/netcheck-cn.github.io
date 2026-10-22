@@ -41,3 +41,5 @@ main{padding-block:29px 65px;min-height:65vh}h1,h2,h3{color:#142d4d;line-height:
 .batch-results td:nth-child(2){min-width:160px}
 @media(max-width:620px){.mode-toggle{max-width:none}.mode-button{padding:10px 8px;font-size:13px}.batch-results table{min-width:640px}}
 @media(prefers-reduced-motion:reduce){.btn,.batch-progress-bar{transition:none}}
+
+.latency-controls{display:grid;grid-template-columns:minmax(0,2fr) minmax(110px,1fr);gap:8px 14px;margin-bottom:16px;align-items:center}.latency-controls label{font-size:13px;font-weight:700;color:#284561}.latency-controls select{min-width:0;width:100%;min-height:44px;padding:9px 12px;border-radius:10px;border:1px solid #b9cce3;background:#fff;color:#18385b;font:inherit}.latency-controls select:focus-visible{outline:3px solid #7bb4fb;outline-offset:2px}@media(max-width:620px){.latency-controls{grid-template-columns:minmax(0,1fr)}}

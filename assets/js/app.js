@@ -7,10 +7,15 @@ function text(id,value){const el=$(id);if(el)el.textContent=value??'—';}
 function setBusy(id,busy){const el=$(id);if(el)el.disabled=busy;}
 async function jsonFetch(url,opts={}){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),9000);try{const r=await fetch(url,{...opts,signal:controller.signal,cache:'no-store'});if(!r.ok)throw new Error(r.status===429?'接口请求次数已达到上限（HTTP 429）':`接口返回 HTTP ${r.status}`);return await r.json();}finally{clearTimeout(timeout);}}
 function validIP(value){const s=value.trim();if(!s)return false;const v4=s.split('.');if(v4.length===4&&v4.every(x=>/^\d{1,3}$/.test(x)&&Number(x)<=255&&(x==='0'||!x.startsWith('0'))))return true;if(!s.includes(':')||!/^[0-9a-fA-F:.]+$/.test(s))return false;try{const url=new URL('http://['+s+']/');return !!url.hostname;}catch{return false;}}
+function normalizedIP(ip){
+ const value=String(ip).trim().toLowerCase();
+ if(!value.includes(':'))return value;
+ try{return new URL('http://['+value+']/').hostname.replace(/^\[|\]$/g,'').toLowerCase();}catch{return value;}
+}
 function ipScope(ip){
  // Public geolocation is inappropriate for special-use and local addresses.
  if(ip.includes(':')){
-  const lower=ip.toLowerCase();
+  const lower=normalizedIP(ip);
   if(lower==='::'||lower==='::1'||lower.startsWith('fe8')||lower.startsWith('fe9')||lower.startsWith('fea')||lower.startsWith('feb')||lower.startsWith('fc')||lower.startsWith('fd'))return '此 IPv6 地址属于本地、链路本地或唯一本地地址，不能查询公网归属地。';
   if(lower.startsWith('ff'))return 'IPv6 组播地址不能查询公网归属地。';
   if(/^2001:0?db8(?::|$)/.test(lower))return '这是用于技术文档示例的 IPv6 地址段（2001:db8::/32），不能作为普通公网地址查询。';
@@ -75,10 +80,60 @@ function compareDnsAnswers(first,second){
   ? '两家解析器的 DNS 状态码和 Answer 记录一致（忽略 TTL、记录顺序；未比较 Authority / Additional 等其他响应字段）。'
   : '两家解析器的 Answer 记录不同（或状态码不同）；可能是缓存、地域调度或记录更新，不能据此断定污染。';
 }
-function initDNS(){const form=$('dns-form');if(!form)return;form.addEventListener('submit',async e=>{e.preventDefault();const domain=$('dns-domain').value.trim().toLowerCase().replace(/\.$/,'');const type=$('dns-type').value;if(!validDomain(domain)){status('dns-status','请输入有效的 ASCII 域名，例如 example.com；中文域名请使用 Punycode 形式。','error');return;}setBusy('dns-search',true);$('copy-dns').disabled=true;status('dns-status','正在同时查询两家公共 DNS 服务…');$('dns-google').replaceChildren();$('dns-cloudflare').replaceChildren();text('dns-compare','等待结果');text('dns-diagnosis','等待查询结果。');try{const outcomes=await Promise.allSettled(['Google','Cloudflare'].map(p=>dnsQuery(p,domain,type)));const data=[];outcomes.forEach((out,i)=>{const p=['Google','Cloudflare'][i];const target=i===0?'dns-google':'dns-cloudflare';if(out.status==='rejected'){text(target,p+' 查询失败：'+out.reason.message);return;}const item=out.value;data.push(item);const rows=(Array.isArray(item.d.Answer)?item.d.Answer:[]).filter(a=>a&&typeof a==='object').map(a=>[a.name,DNS_NAMES[a.type]||a.type,a.TTL,a.data]);const block=$(target);const summary=document.createElement('p');summary.textContent=dnsStatus(item.d.Status)+' · HTTP 请求耗时 '+item.ms+' ms';block.append(summary);const tbl=document.createElement('div');tbl.className='results';tbl.id=target+'-table';block.append(tbl);makeTable(tbl.id,['名称','记录类型','TTL（秒）','记录值'],rows);if(!rows.length){const n=document.createElement('p');n.textContent=item.d.Status===0?'响应正常，但没有返回这种类型的 Answer 记录。':'请根据 DNS 状态检查域名与解析服务。';block.append(n);}});text('dns-diagnosis',dnsDiagnosis(outcomes));if(data.length===2){text('dns-compare',compareDnsAnswers(data[0].d,data[1].d));}else{text('dns-compare','只有一家服务返回有效响应，无法完成双服务对比。');}status('dns-status',data.length?'检测结束 · '+checkedAt()+'。以下均为 API 实际响应。':'两个 DNS 接口均不可访问，请稍后重试。',data.length?'success':'error');$('copy-dns').disabled=!data.length;}catch(e){status('dns-status','DNS 查询异常：'+e.message,'error');text('dns-compare','查询未完成');text('dns-diagnosis','请求发生异常，暂时不能判断域名解析情况。');$('copy-dns').disabled=true;}finally{setBusy('dns-search',false);}});wireCopy('copy-dns',()=> $('copy-dns').disabled?'':['dns-google','dns-cloudflare','dns-compare'].map((id,i)=>['Google DNS','Cloudflare DNS','结果比较'][i]+'：\n'+($(id)?.textContent||'')).join('\n\n'));}
-const ENDPOINT='https://www.google.com/generate_204'; // no-cors: measures fetch settlement, not a verified HTTP response
-async function httpProbe(){const c=new AbortController();const timer=setTimeout(()=>c.abort(),7000);const t=performance.now();try{await fetch(ENDPOINT+'?test='+Date.now()+'-'+Math.random().toString(36).slice(2),{mode:'no-cors',cache:'no-store',signal:c.signal});return Math.round(performance.now()-t);}finally{clearTimeout(timer);}}
-function initLatency(){const btn=$('latency-start');if(!btn)return;btn.addEventListener('click',async()=>{setBusy('latency-start',true);try{status('latency-status','正在测试（共 5 次 HTTP 请求），请勿切换网络…');const samples=[];const attempts=[];['latency-avg','latency-median','latency-range','latency-success'].forEach(id=>text(id,'—'));$('latency-chart').replaceChildren();for(let i=0;i<5;i++){try{const ms=await httpProbe();samples.push(ms);attempts.push({ok:true,ms});status('latency-status',`第 ${i+1}/5 次 fetch 已结束：${ms} ms（HTTP 状态不可见）`);}catch(e){attempts.push({ok:false});status('latency-status',`第 ${i+1}/5 次请求失败：${e.message}`,'error');}await new Promise(r=>setTimeout(r,220));}if(samples.length){const sorted=[...samples].sort((a,b)=>a-b),avg=Math.round(samples.reduce((a,b)=>a+b,0)/samples.length),median=sorted.length%2?sorted[Math.floor(sorted.length/2)]:Math.round((sorted[sorted.length/2-1]+sorted[sorted.length/2])/2),range=Math.max(...samples)-Math.min(...samples);text('latency-avg',avg+' ms');text('latency-median',median+' ms');text('latency-range',range+' ms');text('latency-success',samples.length+'/5');const bars=$('latency-chart');bars.replaceChildren();attempts.forEach((entry,i)=>{const b=document.createElement('div');b.className='bar'+(entry.ok?'':' bar-failed');b.style.height=entry.ok?Math.max(8,Math.round(entry.ms/Math.max(...samples)*122))+'px':'8px';const label=document.createElement('small');label.textContent=entry.ok?entry.ms:'失败';b.title='第'+(i+1)+'次：'+(entry.ok?entry.ms+' 毫秒':'失败');b.append(label);bars.append(b);});bars.setAttribute('aria-label','5次请求耗时：'+attempts.map(a=>a.ok?a.ms+'毫秒':'失败').join('、')); status('latency-status',samples.length===5?'5 次 fetch 均已结束（测试端点：www.google.com/generate_204）。这些数字是浏览器 Fetch 请求结束耗时，可能受到连接、缓存策略及浏览器行为影响；no-cors 无法读取 HTTP 状态，也不能证明网站正常或代表 ICMP Ping。':`仅 ${samples.length}/5 次请求完成。失败请求未计入耗时统计；无法读取 HTTP 状态码，也不能据此判断宽带速度。`,samples.length===5?'success':'info');}else{text('latency-success','0/5');status('latency-status','测试未取得有效数据；浏览器或网络可能阻止测试端点访问。','error');}}catch(e){status('latency-status','检测过程中出现错误：'+(e?.message||'未知错误'),'error');}finally{setBusy('latency-start',false);}});}
+function initDNS(){const form=$('dns-form');if(!form)return;form.addEventListener('submit',async e=>{e.preventDefault();const domain=$('dns-domain').value.trim().toLowerCase().replace(/\.$/,'');const type=$('dns-type').value;if(!validDomain(domain)){status('dns-status','请输入有效的 ASCII 域名，例如 example.com；中文域名请使用 Punycode 形式。','error');return;}setBusy('dns-search',true);$('copy-dns').disabled=true;status('dns-status','正在同时查询两家公共 DNS 服务…');$('dns-google').replaceChildren();$('dns-cloudflare').replaceChildren();text('dns-compare','等待结果');text('dns-diagnosis','等待查询结果。');try{const outcomes=await Promise.allSettled(['Google','Cloudflare'].map(p=>dnsQuery(p,domain,type)));const data=[];outcomes.forEach((out,i)=>{const p=['Google','Cloudflare'][i];const target=i===0?'dns-google':'dns-cloudflare';if(out.status==='rejected'){text(target,p+' 查询失败：'+out.reason.message);return;}const item=out.value;data.push(item);const rows=(Array.isArray(item.d.Answer)?item.d.Answer:[]).filter(a=>a&&typeof a==='object').map(a=>[a.name,DNS_NAMES[a.type]||a.type,a.TTL,a.data]);const block=$(target);const summary=document.createElement('p');summary.textContent=dnsStatus(item.d.Status)+' · HTTP 请求耗时 '+item.ms+' ms';block.append(summary);const tbl=document.createElement('div');tbl.className='results';tbl.id=target+'-table';block.append(tbl);makeTable(tbl.id,['名称','记录类型','TTL（秒）','记录值'],rows);if(!rows.length){const n=document.createElement('p');n.textContent=item.d.Status===0?'响应正常，但没有返回这种类型的 Answer 记录。':'请根据 DNS 状态检查域名与解析服务。';block.append(n);}});text('dns-diagnosis',dnsDiagnosis(outcomes));if(data.length===2){text('dns-compare',compareDnsAnswers(data[0].d,data[1].d));}else{text('dns-compare','只有一家服务返回有效响应，无法完成双服务对比。');}const cleanDns=data.length===2&&data.every(item=>item.d.Status===0);const badDns=data.some(item=>item.d.Status!==0);status('dns-status',data.length===2?(badDns?'两家公共 DNS 均已返回响应，但至少一家返回 DNS 错误状态；请检查状态码与诊断说明。':'两家公共 DNS 查询完成 · '+checkedAt()+'。'):data.length===1?'仅一家公共 DNS 接口返回有效响应 · '+checkedAt()+'；请检查该响应的 DNS 状态码及另一家服务的失败原因。':'两家 DNS 接口均未能成功请求，请检查网络或稍后重试。',cleanDns?'success':data.length?'info':'error');$('copy-dns').disabled=!data.length;}catch(e){status('dns-status','DNS 查询异常：'+e.message,'error');text('dns-compare','查询未完成');text('dns-diagnosis','请求发生异常，暂时不能判断域名解析情况。');$('copy-dns').disabled=true;}finally{setBusy('dns-search',false);}});wireCopy('copy-dns',()=> $('copy-dns').disabled?'':['dns-google','dns-cloudflare','dns-compare'].map((id,i)=>['Google DNS','Cloudflare DNS','结果比较'][i]+'：\n'+($(id)?.textContent||'')).join('\n\n'));}
+const LATENCY_TARGETS={
+ google:{name:'Google',url:'https://www.google.com/generate_204'},
+ cloudflare:{name:'Cloudflare',url:'https://www.cloudflare.com/cdn-cgi/trace'}
+};
+async function httpProbe(target){
+ const controller=new AbortController(); const timeout=setTimeout(()=>controller.abort(),8000);
+ const begin=performance.now();
+ try{
+  await fetch(target.url+(target.url.includes('?')?'&':'?')+'netcheck='+Date.now()+'-'+Math.random().toString(36).slice(2),{mode:'no-cors',cache:'no-store',signal:controller.signal});
+  return Math.round(performance.now()-begin);
+ }finally{clearTimeout(timeout);}
+}
+function initLatency(){
+ const button=$('latency-start'); if(!button)return;
+ button.addEventListener('click',async()=>{
+  const target=LATENCY_TARGETS[$('latency-target')?.value];
+  const count=Number($('latency-count')?.value);
+  if(!target||![5,10].includes(count)){status('latency-status','请选择有效的测试目标和次数。','error');return;}
+  setBusy('latency-start',true);
+  $('latency-target').disabled=true;$('latency-count').disabled=true;
+  const samples=[], attempts=[];
+  ['latency-avg','latency-median','latency-range','latency-success'].forEach(id=>text(id,'—'));
+  $('latency-chart').replaceChildren();
+  try{
+   for(let i=0;i<count;i++){
+    status('latency-status',`正在请求 ${target.name}：第 ${i+1}/${count} 次…`);
+    try{const ms=await httpProbe(target);samples.push(ms);attempts.push({ok:true,ms});}
+    catch(err){attempts.push({ok:false});}
+    if(i<count-1)await new Promise(resolve=>setTimeout(resolve,220));
+   }
+   if(samples.length){
+    const sorted=[...samples].sort((a,b)=>a-b);
+    const avg=Math.round(samples.reduce((a,b)=>a+b,0)/samples.length);
+    const mid=Math.floor(sorted.length/2);
+    const median=sorted.length%2?sorted[mid]:Math.round((sorted[mid-1]+sorted[mid])/2);
+    const range=Math.max(...samples)-Math.min(...samples);
+    text('latency-avg',avg+' ms');text('latency-median',median+' ms');text('latency-range',range+' ms');
+    const max=Math.max(...samples);
+    const chart=$('latency-chart');
+    attempts.forEach((entry,i)=>{
+     const bar=document.createElement('div');bar.className='bar'+(entry.ok?'':' bar-failed');
+     bar.style.height=entry.ok?Math.max(8,Math.round(entry.ms/max*122))+'px':'8px';
+     bar.title=`第 ${i+1} 次：${entry.ok?entry.ms+' ms':'请求失败'}`;
+     const label=document.createElement('small');label.textContent=entry.ok?entry.ms:'失败';bar.append(label);chart.append(bar);
+    });
+    chart.setAttribute('aria-label',`${target.name} ${count} 次 Fetch 请求：`+attempts.map(x=>x.ok?x.ms+'毫秒':'失败').join('、'));
+   }
+   text('latency-success',samples.length+'/'+count);
+   status('latency-status',`${target.name} 测量结束：${samples.length}/${count} 次 Fetch 请求完成，${count-samples.length} 次失败。完成不代表 HTTP 状态正常；数据仅为浏览器请求结束耗时。`,samples.length===count?'success':samples.length?'info':'error');
+  }catch(e){status('latency-status','测量异常：'+(e?.message||'未知错误'),'error');}
+  finally{setBusy('latency-start',false);$('latency-target').disabled=false;$('latency-count').disabled=false;}
+ });
+}
 document.addEventListener('DOMContentLoaded',()=>{initIP();initDNS();initLatency();});
 
 
@@ -103,8 +158,8 @@ function initDNSBatch(){const btn=$('dns-batch-start');if(!btn)return;btn.addEve
  try{const types=['A','AAAA','MX','NS','TXT','CAA'];const results=await Promise.allSettled(types.map(type=>dnsQuery('Google',domain,type)));
  const rows=results.map((r,i)=>{if(r.status==='rejected')return [types[i],'请求失败',r.reason?.message||'未知错误'];const x=r.value;const answer=Array.isArray(x.d.Answer)?x.d.Answer.filter(a=>a&&typeof a==='object'):[];const matching=answer.filter(a=>a.type===DNS_TYPES[types[i]]);const preview=x.d.Status!==0?'查询返回非正常 DNS 状态':matching.length?matching.slice(0,3).map(a=>String(a.data).slice(0,240)+(String(a.data).length>240?'…':'' )).join('；')+(matching.length>3?'（其余 '+(matching.length-3)+' 条未展开）':''):answer.length?'返回了别的记录类型（如 CNAME），请查看单项详情':'未返回此类型记录';return [types[i],dnsStatus(x.d.Status),preview];});
  makeTable('dns-batch-results',['类型','状态','概览'],rows);
- const failed=results.filter(r=>r.status==='rejected').length;
- status('dns-batch-status',`已完成 ${types.length} 类记录的查询；${failed} 类请求失败。结果来自 Google Public DNS，可能受到缓存和地域影响。`,failed?'info':'success');}catch(error){status('dns-batch-status','批量查询出现意外错误：'+error.message,'error');}finally{btn.disabled=false;}
+ const failed=results.filter(r=>r.status==='rejected').length;const badStatus=results.filter(r=>r.status==='fulfilled'&&r.value.d.Status!==0).length;
+ status('dns-batch-status',`已处理 ${types.length} 类记录：${failed} 类 HTTP 请求失败，${badStatus} 类收到非 NOERROR DNS 状态。结果来自 Google Public DNS，可能受到缓存和地域影响。`,failed||badStatus?'info':'success');}catch(error){status('dns-batch-status','批量查询出现意外错误：'+error.message,'error');}finally{btn.disabled=false;}
  });}
 document.addEventListener('DOMContentLoaded',()=>{initDualStack();initDNSBatch();});
 
@@ -125,7 +180,7 @@ function initBatchIP(){
  };
  $('mode-single').addEventListener('click',()=>activate(false));
  $('mode-batch').addEventListener('click',()=>activate(true));
- const display=()=>makeTable('batch-results',['IP 地址','查询状态','国家/地区','洲','ASN','网络组织'],records.map(r=>[r.ip,r.state,r.country,r.continent,r.asn,r.organization]));
+ const display=()=>makeTable('batch-results',['IP 地址','查询状态','国家代码','洲代码','ASN','网络组织'],records.map(r=>[r.ip,r.state,r.country,r.continent,r.asn,r.organization]));
  if(!token){$('batch-start').disabled=true;status('batch-status','批量查询服务尚未启用。单个 IP 查询仍可正常使用。','info');}
  const batchLimit=50;
  $('batch-start').addEventListener('click',async()=>{
@@ -138,7 +193,7 @@ function initBatchIP(){
   $('batch-export').disabled=true;$('batch-start').disabled=true;
   $('mode-single').disabled=true;$('mode-batch').disabled=true;$('batch-progress').style.width='0%';display();
   let cursor=0,finished=0;
-  const update=()=>{display();$('batch-progress').style.width=(finished/ips.length*100)+'%';status('batch-status',`已处理 ${finished}/${ips.length} 个 IP；成功 ${records.filter(x=>x.state==='查询成功').length} 个。`,finished===ips.length?'success':'info');};
+  const update=()=>{display();$('batch-progress').style.width=(finished/ips.length*100)+'%';const succeeded=records.filter(x=>x.state==='查询成功').length;const rejected=finished-succeeded;status('batch-status',`已处理 ${finished}/${ips.length} 个 IP；成功 ${succeeded} 个，未成功 ${rejected} 个。${finished===ips.length&&rejected?'导出文件会保留失败行和对应状态，便于逐项复查。':''}`,finished===ips.length?(succeeded===0?'error':rejected?'info':'success'):'info');};
   const worker=async()=>{
    while(cursor<ips.length){
     const index=cursor++,ip=ips[index],record=records[index];
@@ -149,10 +204,11 @@ function initBatchIP(){
     try{
      const url='https://api.ipinfo.io/lite/'+encodeURIComponent(ip)+'?token='+encodeURIComponent(token);
      const d=await jsonFetch(url);
-     if(!d||typeof d!=='object'||Array.isArray(d)||!d.ip||d.error)throw Error(d?.error?.message||'返回数据不完整');
+     if(!d||typeof d!=='object'||Array.isArray(d)||!d.ip||d.error)throw Error(typeof d?.error==='string'?d.error:(d?.error?.message||'返回数据不完整'));
+     if(normalizedIP(d.ip)!==normalizedIP(ip))throw Error('返回的 IP 与请求地址不一致');
      record.state='查询成功';
-     record.country=String(d.country||d.country_code||'—');
-     record.continent=String(d.continent||d.continent_code||'—');
+     record.country=String(d.country_code||d.country||'—');
+     record.continent=String(d.continent_code||d.continent||'—');
      record.asn=String(d.asn||'—');
      record.organization=String(d.as_name||d.as_domain||'—');
     }catch(e){record.state=e.name==='AbortError'?'请求超时':('查询失败：'+(e.message||'服务暂不可用'));}
@@ -167,7 +223,7 @@ function initBatchIP(){
  $('batch-export').addEventListener('click',()=>{
   if(!records.length)return;
   const csvCell=v=>'"'+String(v??'').replace(/"/g,'""').replace(/^[=+@\-\t\r]/,x=>"'"+x)+'"';
-  const rows=[['IP 地址','查询状态','国家/地区','洲','ASN','网络组织'],...records.map(r=>[r.ip,r.state,r.country,r.continent,r.asn,r.organization])];
+  const rows=[['IP 地址','查询状态','国家代码','洲代码','ASN','网络组织'],...records.map(r=>[r.ip,r.state,r.country,r.continent,r.asn,r.organization])];
   const csv='\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download='网测通-IP批量查询.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
